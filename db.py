@@ -22,7 +22,6 @@ def add_ingredient(adict, conn=CONN):
     k = ["protein", "carbohydrate", "fat", "kcals", "unit", "serving_size", "container_name"]
     v = (adict["name"].lower(),) + tuple(adict[x] for x in k)
 
-
     conn.execute('''INSERT INTO ingredients (name,protein,carbohydrate,fat,kcals,unit,serving_size, container_name)
                     VALUES (?,?,?,?,?,?,?,?)''', v)
     conn.commit()
@@ -139,7 +138,52 @@ def get_ingredient(name, conn=CONN):
     a = conn.execute('''SELECT * from ingredients WHERE name = ?''', (name,))
     return a.fetchone()
 
+
 def get_recipe(name, conn=CONN):
 
     a = conn.execute('''SELECT * from recipes WHERE name = ?''', (name,))
     return a.fetchone()
+
+
+def get_daily_totals(date=None, date_mod=None, conn=CONN):
+
+    """return the last 30 days' totals of protein, carb, fat, kcals, for plotting on the main
+    window graph, or a single day's totals if the date argument is specified. Date
+    must be a string like YYYY-MM-DD or 'now' for today's date"""
+
+    if date:
+        if date_mod:
+            a = conn.execute('''select date(entry_time), 
+                                sum(protein), 
+                                sum(carbohydrate), 
+                                sum(fat), 
+                                sum(kcals) 
+                                from consumption 
+                                where date(entry_time) = date(?, ?)''', (date, date_mod))
+        else:
+
+            a = conn.execute('''select date(entry_time), 
+                                sum(protein), 
+                                sum(carbohydrate), 
+                                sum(fat), 
+                                sum(kcals) 
+                                from consumption 
+                                where date(entry_time) = date(?)''', (date,))
+    else:
+        a = conn.execute('''select date(entry_time), 
+                            sum(protein), 
+                            sum(carbohydrate), 
+                            sum(fat), 
+                            sum(kcals) 
+                            from consumption 
+                            group by date(entry_time)''')
+
+    return a.fetchall()
+
+
+def get_daily_weighins(conn=CONN):
+
+    """return the last 30 day's worth of weight measurements."""
+
+    a = conn.execute('''select date(entry_time), weighin from weight''')
+    return a.fetchall()

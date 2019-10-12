@@ -1,6 +1,8 @@
 from tkinter import *
 import db
 import re
+from graphs import *
+import datetime
 
 class App:
 
@@ -12,6 +14,9 @@ class App:
         self.container.pack(side=LEFT)
         self.container3 = Frame(self.container0)
         self.container3.pack(side=LEFT, padx=20)
+
+        self.graph_window = GraphWindow(self.container0)
+        self.graph_window.pack(side=LEFT, fill=BOTH, expand=YES)
 
         self.recipe_name_container = Frame(self.container)
         self.recipe_name_container.pack(side=TOP, pady=20)
@@ -82,12 +87,95 @@ class App:
         self.entry_boxes.refresh_autocompletes()
 
 
-class RunningTotals():
+class GraphWindow(Frame):
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.pie_container = Frame(self)
+        self.graph_container = Frame(self)
+
+        today_info = db.get_daily_totals(date="now")[0]
+        yesterday_info = db.get_daily_totals(date="now", date_mod="-1 day")[0]
+        # these date modifiers are understood by Sqlite
+
+        self.today_pie = PieChartWidget(self.pie_container,
+                                        data_series=self.prepare_pie_data_series(today_info))
+        self.yesterday_pie = PieChartWidget(self.pie_container,
+                                            data_series=self.prepare_pie_data_series(yesterday_info))
+
+        historical_info = db.get_daily_totals()
+        line_graph_data = self.prepare_line_data_series(historical_info)
+
+        weight_info = db.get_daily_weighins()
+        weight_data = self.prepare_line_data_series(weight_info)
+        i, j = weight_data
+
+        a, b = line_graph_data
+        self.line_graph = DateGraphWidget(self.graph_container, xdata=a,
+                                          caldata=[x["sum(kcals)"] for x in b],
+                                          xdata2=i,
+                                          weightdata=[x["weighin"] for x in j])
+
+        macronutrient_info = self.prepare_macronutrient_data_series(historical_info)
+        a, b = macronutrient_info
+        self.macro_graph = MultiDateGraphWidget(self.graph_container, xdata=a, ydata=b)
+
+        self.pie_container.pack(side=TOP, fill=BOTH, expand=YES)
+        self.today_pie.pack(side=LEFT, fill=BOTH, expand=YES)
+        self.yesterday_pie.pack(side=LEFT, fill=BOTH, expand=YES)
+        self.graph_container.pack(side=TOP, fill=BOTH, expand=YES)
+        self.line_graph.pack(side=LEFT, fill=BOTH, expand=YES)
+        self.macro_graph.pack(side=LEFT, fill=BOTH, expand=YES)
+
+    def prepare_pie_data_series(self, row):
+
+        """converts the sqlite row to a pair of lists suitable for the pie chart widget"""
+
+        names = []
+        values = []
+        for k in ["sum(protein)", "sum(carbohydrate)", "sum(fat)"]:
+            names.append(k)
+            values.append(row[k])
+        return names, values
+
+    def prepare_line_data_series(self, rowlist):
+
+        """converts the sqlite query for the last 30 days into a pair of lists
+        [date1, date2..], [value1, value2...]"""
+
+        dates = []
+        vals = []
+        for x in rowlist:
+            dates.append(datetime.datetime.strptime(x["date(entry_time)"],"%Y-%m-%d"))
+            # the graph needs to be given datetime objects rather than date strings, otherwise it will
+            # plot the x-axis as categories rather than a continuous scale
+            vals.append(x)
+        return dates, vals
+
+    def prepare_macronutrient_data_series(self, rowlist):
+
+        """converts the historical sqlite query into a dict of protein, carbs, fat per day"""
+        #TODO: refactor this as a variant of prepare_line_data, pass desired keys
+
+        dates = []
+        values = []
+        for x in rowlist:
+            dates.append(datetime.datetime.strptime(x["date(entry_time)"], "%Y-%m-%d"))
+            tmp = {}
+            for k in ["protein", "carbohydrate", "fat"]:
+                v = x[f"sum({k})"]
+                tmp[k] = v
+            values.append(tmp)
+
+        return dates, values
+
+class RunningTotals:
 
     def __init__(self, parent_container):
 
         self.container = Frame(parent_container)
-        self.title = Label(self.container, text="Running totals for consumption")
+        self.title = Label(self.container, text="Today's consumption")
         self.title.pack(side=TOP)
         self.readings = {}
         self.reading_values = {}
@@ -104,6 +192,13 @@ class RunningTotals():
             self.readings[x] = lab2  # dictionary to look up label and change the displayed value
             self.reading_values[x] = 0.0
             con.pack(side=TOP, fill=BOTH)
+
+        today_info = db.get_daily_totals(date="now")[0]  # read in the day's entries already made
+        tmp = {}
+        for x in ["protein", "carbohydrate", "fat", "kcals"]:
+            val = today_info[f"sum({x})"]  # keys are different because we used and SQL sum query
+            tmp[x] = val
+        self.increment_displayed_values(tmp)
 
     def pack(self, side):
 
@@ -160,7 +255,7 @@ class IngredientAdder:
         self.parent.entry_boxes.refresh_autocompletes()
 
 
-class MyEntryBoxes():
+class MyEntryBoxes:
 
     """three text entry boxes, item name, amount, and unit"""
 
