@@ -42,14 +42,18 @@ class PieChartWidget(Frame):
         super().__init__(*args, **kwargs)
         self.fig = Figure(figsize=(5, 4), dpi=100)
         names, data = data_series  # unpack the passed arg
-        ax = self.fig.add_subplot(111)  # add_subplot returns an axes object
-        wedges, text, autopct = ax.pie(data, autopct=lambda x: f"{int(x)}% ", textprops={"color": "w"})
+        self.ax = self.fig.add_subplot(111)  # add_subplot returns an axes object
+        wedges, text, autopct = self.ax.pie(data, autopct=lambda x: f"{int(x)}% ", textprops={"color": "w"})
         # the autopct lambda function gets passed the percentage as an argument
-        ax.legend(wedges, names)
+        self.ax.legend(wedges, names)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         widget = self.canvas.get_tk_widget()
         widget.pack(side=TOP, fill=BOTH, expand=YES)
+
+    def set_title(self, title):
+
+        self.ax.set_title(title)
 
 
 class DateGraphWidget(Frame):
@@ -68,18 +72,33 @@ class DateGraphWidget(Frame):
             self.caldata = caldata
 
         days = mdates.DayLocator()
-        self.fig = Figure(figsize=(5, 4), dpi=100)
-        ax = self.fig.add_subplot(111)
-        ax2 = ax.twinx()  # make a "twinned" axis to have two scales on the same plot
-        ax.plot(xdata, caldata, "s-b")
-        ax2.plot(xdata2, weightdata, "o-r")
-        ax.xaxis.set_minor_locator(days)
-        ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
-        ax.grid(True)
+        self.fig = Figure(figsize=(6, 5), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_xlabel("Date")
+        self.ax.set_ylabel("kcals")
+
+        ax2 = self.ax.twinx()  # make a "twinned" axis to have two scales on the same plot
+        ax2.set_ylabel("weight/kg")
+        p1, = self.ax.plot(xdata, caldata, "s-b")
+        p2, = ax2.plot(xdata2, weightdata, "o-r")
+        self.ax.yaxis.label.set_color(p1.get_color())
+        ax2.yaxis.label.set_color(p2.get_color())
+        self.ax.xaxis.set_minor_locator(days)
+        self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
+        self.ax.grid(True)
+
+        self.fig.autofmt_xdate()
+
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         widget = self.canvas.get_tk_widget()
         widget.pack(side=TOP, fill=BOTH, expand=YES)
+
+    def set_title(self, title):
+
+        self.ax.set_title(title)
+
+
 
 
 class MultiDateGraphWidget(Frame):
@@ -98,7 +117,11 @@ class MultiDateGraphWidget(Frame):
 
         days = mdates.DayLocator()
         self.fig = Figure(figsize=(5, 4), dpi=100)
-        ax = self.fig.add_subplot(111)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_xlabel("Date")
+        self.ax.set_ylabel("macronutrient/grams")
+
+        lines = []
 
         keys = [x for x in ydata[0].keys()]  # get the keys from the first dict and use for all subsequent
         series = {x:[] for x in keys}
@@ -106,12 +129,19 @@ class MultiDateGraphWidget(Frame):
             for j in keys:
                 series[j].append(i[j])  # assemble a dict of {key1: [value1, value2...]}
         for x in keys:
-            ax.plot(xdata, series[x])  # then plot using the dict we just made
+            a, = self.ax.plot(xdata, series[x], label=x)  # then plot using the dict we just made
+            lines.append(a)  # hold a reference to the lines to build the legend
 
-        ax.xaxis.set_minor_locator(days)
-        ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
-        ax.grid(True)
+        self.ax.legend(lines, [x.get_label() for x in lines])
 
+        self.ax.xaxis.set_minor_locator(days)
+        self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
+        self.ax.grid(True)
+        self.fig.autofmt_xdate()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         widget = self.canvas.get_tk_widget()
         widget.pack(side=TOP, fill=BOTH, expand=YES)
+
+    def set_title(self, title):
+
+        self.ax.set_title(title)

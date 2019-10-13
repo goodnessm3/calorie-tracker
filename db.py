@@ -145,6 +145,12 @@ def get_recipe(name, conn=CONN):
     return a.fetchone()
 
 
+def enter_weight(weight, conn=CONN):
+
+    conn.execute('''INSERT INTO weight (weighin) VALUES (?)''', (weight,))
+    conn.commit()
+
+
 def get_daily_totals(date=None, date_mod=None, conn=CONN):
 
     """return the last 30 days' totals of protein, carb, fat, kcals, for plotting on the main

@@ -95,7 +95,14 @@ class GraphWindow(Frame):
         self.pie_container = Frame(self)
         self.graph_container = Frame(self)
 
+        dummy_data = {"sum(protein)": 0,
+                      "sum(carbohydrate)": 0,
+                      "sum(fat)": 0,
+                      "sum(kcals)": 0}
+
         today_info = db.get_daily_totals(date="now")[0]
+        if not today_info["sum(kcals)"]:
+            today_info = dummy_data
         yesterday_info = db.get_daily_totals(date="now", date_mod="-1 day")[0]
         # these date modifiers are understood by Sqlite
 
@@ -103,6 +110,9 @@ class GraphWindow(Frame):
                                         data_series=self.prepare_pie_data_series(today_info))
         self.yesterday_pie = PieChartWidget(self.pie_container,
                                             data_series=self.prepare_pie_data_series(yesterday_info))
+
+        self.today_pie.set_title("Macronutrients (today)")
+        self.yesterday_pie.set_title("Macronutrients (yesterday)")
 
         historical_info = db.get_daily_totals()
         line_graph_data = self.prepare_line_data_series(historical_info)
@@ -116,16 +126,19 @@ class GraphWindow(Frame):
                                           caldata=[x["sum(kcals)"] for x in b],
                                           xdata2=i,
                                           weightdata=[x["weighin"] for x in j])
+        self.line_graph.set_title("Daily kcals/weight")
 
         macronutrient_info = self.prepare_macronutrient_data_series(historical_info)
         a, b = macronutrient_info
         self.macro_graph = MultiDateGraphWidget(self.graph_container, xdata=a, ydata=b)
+        self.macro_graph.set_title("Daily macronutrients")
 
         self.pie_container.pack(side=TOP, fill=BOTH, expand=YES)
         self.today_pie.pack(side=LEFT, fill=BOTH, expand=YES)
         self.yesterday_pie.pack(side=LEFT, fill=BOTH, expand=YES)
         self.graph_container.pack(side=TOP, fill=BOTH, expand=YES)
-        self.line_graph.pack(side=LEFT, fill=BOTH, expand=YES)
+        self.graph_container.config(bg="white")
+        self.line_graph.pack(side=LEFT, fill=BOTH, expand=YES, padx=30)
         self.macro_graph.pack(side=LEFT, fill=BOTH, expand=YES)
 
     def prepare_pie_data_series(self, row):
@@ -180,6 +193,9 @@ class RunningTotals:
         self.readings = {}
         self.reading_values = {}
 
+        self.weighin = WeighIn(self.container)
+        self.weighin.pack(side=TOP, expand=YES, fill=BOTH)
+
         self.label_con = Frame(self.container)
         self.label_con.pack(side=TOP)
 
@@ -194,6 +210,14 @@ class RunningTotals:
             con.pack(side=TOP, fill=BOTH)
 
         today_info = db.get_daily_totals(date="now")[0]  # read in the day's entries already made
+
+        dummy_data = {"sum(protein)": 0,
+                      "sum(carbohydrate)": 0,
+                      "sum(fat)": 0,
+                      "sum(kcals)": 0}
+        if not today_info["sum(kcals)"]:
+            today_info = dummy_data
+
         tmp = {}
         for x in ["protein", "carbohydrate", "fat", "kcals"]:
             val = today_info[f"sum({x})"]  # keys are different because we used and SQL sum query
@@ -213,6 +237,25 @@ class RunningTotals:
             new_val = old_val + float(adict[k])
             self.readings[k].configure(text=round(new_val, 2))
             self.reading_values[k] = new_val
+
+class WeighIn(Frame):
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        lab = Label(self, text="Today's weight (kg):")
+        self.entry = Entry(self, width=4)
+        button = Button(self, text="Enter", command=self.submit_weight)
+        lab.pack(side=LEFT)
+        self.entry.pack(side=LEFT)
+        button.pack(side=LEFT)
+
+    def submit_weight(self):
+
+        val = self.entry.get()
+        db.enter_weight(val)
+        print(f"entered weight {val} into the db")  # TODO: log to console after refactoring
+        self.entry.delete(0, END)
 
 
 class IngredientAdder:
