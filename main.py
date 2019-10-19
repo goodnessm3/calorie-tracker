@@ -10,8 +10,9 @@ class LoggingMixIn:
     """provides a method to send a message, via the application root object, to a console that
     prints the text output."""
 
-    _root = None  # this method is provided by all other tkinter classes that will be mixed in
-                  # it gets a reference to the app root object
+    _root = None
+    # this method is provided by all other tkinter classes that will be mixed in
+    # it gets a reference to the app root object
 
     def log(self, msg):
 
@@ -114,14 +115,7 @@ class GraphWindow(Frame):
         self.pie_container = Frame(self)
         self.graph_container = Frame(self)
 
-        dummy_data = {"sum(protein)": 0,
-                      "sum(carbohydrate)": 0,
-                      "sum(fat)": 0,
-                      "sum(kcals)": 0}
-
         today_info = db.get_daily_totals(date="now")[0]
-        if not today_info["sum(kcals)"]:
-            today_info = dummy_data
         yesterday_info = db.get_daily_totals(date="now", date_mod="-1 day")[0]
         # these date modifiers are understood by Sqlite
 
@@ -179,7 +173,7 @@ class GraphWindow(Frame):
         dates = []
         vals = []
         for x in rowlist:
-            dates.append(datetime.datetime.strptime(x["date(entry_time)"],"%Y-%m-%d"))
+            dates.append(datetime.datetime.strptime(x["date(entry_time)"], "%Y-%m-%d"))
             # the graph needs to be given datetime objects rather than date strings, otherwise it will
             # plot the x-axis as categories rather than a continuous scale
             vals.append(x)
@@ -188,7 +182,7 @@ class GraphWindow(Frame):
     def prepare_macronutrient_data_series(self, rowlist):
 
         """converts the historical sqlite query into a dict of protein, carbs, fat per day"""
-        #TODO: refactor this as a variant of prepare_line_data, pass desired keys
+        # TODO: refactor this as a variant of prepare_line_data, pass desired keys
 
         dates = []
         values = []
@@ -201,6 +195,7 @@ class GraphWindow(Frame):
             values.append(tmp)
 
         return dates, values
+
 
 class RunningTotals(Frame):
 
@@ -222,21 +217,13 @@ class RunningTotals(Frame):
             con = Frame(self.label_con)
             lab = Label(con, text=f"{x}:")
             lab.pack(side=LEFT)
-            lab2 = Label(con, text = 0)
+            lab2 = Label(con, text=0)
             lab2.pack(side=RIGHT)
             self.readings[x] = lab2  # dictionary to look up label and change the displayed value
             self.reading_values[x] = 0.0
             con.pack(side=TOP, fill=BOTH)
 
         today_info = db.get_daily_totals(date="now")[0]  # read in the day's entries already made
-
-        # TODO: get dummy data directly from the SQL query
-        dummy_data = {"sum(protein)": 0,
-                      "sum(carbohydrate)": 0,
-                      "sum(fat)": 0,
-                      "sum(kcals)": 0}
-        if not today_info["sum(kcals)"]:
-            today_info = dummy_data
 
         tmp = {}
         for x in ["protein", "carbohydrate", "fat", "kcals"]:
@@ -253,6 +240,7 @@ class RunningTotals(Frame):
             new_val = old_val + float(adict[k])
             self.readings[k].configure(text=round(new_val, 2))
             self.reading_values[k] = new_val
+
 
 class WeighIn(Frame, LoggingMixIn):
 
@@ -291,7 +279,7 @@ class IngredientAdder(Frame, LoggingMixIn):
             entry.pack(side=RIGHT)
             self.entries[x] = entry
             con.pack(side=TOP, fill=BOTH, expand=YES)
-        self.confirm_button = Button(self, text="Confirm",command=self.add_ingredient)
+        self.confirm_button = Button(self, text="Confirm", command=self.add_ingredient)
         self.confirm_button.pack(side=TOP, pady=20)
 
     def add_ingredient(self):
@@ -323,9 +311,9 @@ class MyEntryBoxes(Frame):
         self.recipe_autocompletes = db.get_all_recipe_names()
 
         for label in ("name", "amount", "unit"):
-            l = Label(self.cont2)
-            l.configure(text=label)
-            l.pack(side=LEFT, fill=BOTH, expand=YES)
+            la = Label(self.cont2)
+            la.configure(text=label)
+            la.pack(side=LEFT, fill=BOTH, expand=YES)
         self.cont2.pack(side=TOP, fill=BOTH, expand=YES)
 
         self.name_entry = Entry(self.cont1)
@@ -359,7 +347,7 @@ class MyEntryBoxes(Frame):
 
         self.content = ""
         self.unit = None
-        self.container_name = None
+        self.vessel = None
 
         self.lb = Listbox(self, exportselection=0)
         self.lb.pack(side=TOP, fill=BOTH, expand=YES, pady=10)
@@ -426,11 +414,11 @@ class MyEntryBoxes(Frame):
         row = db.get_ingredient(name)  # to get the unit
         if row:
             self.unit = row["unit"]
-            self.container = row["container_name"]
+            self.vessel = row["container_name"]
         else:
             row = db.get_recipe(name)
             self.unit = "meal"
-            self.container = None
+            self.vessel = None
 
         if not row:
             raise KeyError("ingredient or recipe not in db")
@@ -444,10 +432,10 @@ class MyEntryBoxes(Frame):
         displayed = self.unit_entry.get()
         self.unit_entry.delete(0, END)
         if displayed == self.unit:
-            if self.container:
+            if self.vessel:
                 # sometimes there is no container specified, in which case, do nothing
-                self.unit_entry.insert(0, self.container)
-        elif displayed == self.container or not displayed:
+                self.unit_entry.insert(0, self.vessel)
+        elif displayed == self.vessel or not displayed:
             self.unit_entry.insert(0, self.unit)
 
         return "break"  # suppress moving the focus to the next field
@@ -460,7 +448,7 @@ class MyEntryBoxes(Frame):
         self.lb.selection_clear(0, END)
         if e.keycode == 38:
             # up
-            ind -=1
+            ind -= 1
             if ind < 0:
                 ind = len(all_items) - 1
         elif e.keycode == 40:

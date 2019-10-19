@@ -89,7 +89,6 @@ class DateGraphWidget(Frame):
 
         self.fig.autofmt_xdate()
 
-
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         widget = self.canvas.get_tk_widget()
         widget.pack(side=TOP, fill=BOTH, expand=YES)
@@ -97,8 +96,6 @@ class DateGraphWidget(Frame):
     def set_title(self, title):
 
         self.ax.set_title(title)
-
-
 
 
 class MultiDateGraphWidget(Frame):
@@ -124,7 +121,7 @@ class MultiDateGraphWidget(Frame):
         lines = []
 
         keys = [x for x in ydata[0].keys()]  # get the keys from the first dict and use for all subsequent
-        series = {x:[] for x in keys}
+        series = {x: [] for x in keys}
         for i in ydata:
             for j in keys:
                 series[j].append(i[j])  # assemble a dict of {key1: [value1, value2...]}

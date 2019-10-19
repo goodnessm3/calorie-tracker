@@ -18,7 +18,6 @@ def add_ingredient(adict, conn=CONN):
     """takes rows from reading the CSV and inserts them into the DB. This function expects dictionaries
     with the same keys as the SQL column names"""
 
-
     k = ["protein", "carbohydrate", "fat", "kcals", "unit", "serving_size", "container_name"]
     v = (adict["name"].lower(),) + tuple(adict[x] for x in k)
 
@@ -182,7 +181,20 @@ def get_daily_totals(date=None, date_mod=None, conn=CONN):
                             from consumption 
                             group by date(entry_time)''')
 
-    return a.fetchall()
+    ret = a.fetchall()
+    if ret[0]["sum(kcals)"]:
+        # check that the row actually contains values, if not, the user is asking for a date with no entry
+        # and instead we will return zero values (below)
+        return ret
+    else:
+        return [{"sum(protein)": 0,
+                "sum(carbohydrate)": 0,
+                "sum(fat)": 0,
+                "sum(kcals)": 0}]
+
+        # dict of dummy values to populate the interface, instead of a sqlite row. When the user starts entering
+        # data, it will be written to the db and can be returned by this function in future calls.
+        # TODO: probably this is better to take care of in SQL
 
 
 def get_daily_weighins(conn=CONN):

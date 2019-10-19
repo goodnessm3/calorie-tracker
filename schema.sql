@@ -1,14 +1,15 @@
 DROP TABLE IF EXISTS ingredients;
 DROP TABLE IF EXISTS recipes;
 DROP TABLE IF EXISTS consumption;
+DROP TABLE IF EXISTS weight;
 
 CREATE TABLE ingredients (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT UNIQUE NOT NULL,
-protein FLOAT,
-carbohydrate FLOAT,
-fat FLOAT,
-kcals FLOAT,
+protein REAL,
+carbohydrate REAL,
+fat REAL,
+kcals REAL,
 unit TEXT,
 serving_size TEXT,
 container_name TEXT
@@ -18,21 +19,21 @@ CREATE TABLE recipes (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT,
 composition_string TEXT,
-protein FLOAT,
-carbohydrate FLOAT,
-fat FLOAT,
-kcals FLOAT
+protein REAL,
+carbohydrate REAL,
+fat REAL,
+kcals REAL
 );
 
 CREATE TABLE consumption (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT,
-amount FLOAT,
+amount REAL,
 unit TEXT,
-protein FLOAT,
-carbohydrate FLOAT,
-fat FLOAT,
-kcals FLOAT,
+protein REAL,
+carbohydrate REAL,
+fat REAL,
+kcals REAL,
 entry_time NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
