@@ -41,8 +41,6 @@ def add_recipe(recipe_name, list_of_tups, portions, conn=CONN):
     kcal = 0
     portions = float(portions)
     for tup in list_of_tups:
-        print("looping")
-        print(tup)
         info = calc_nutritional_content(tup)
         pro += float(info["protein"])
         carb += float(info["carbohydrate"])

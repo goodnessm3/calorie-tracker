@@ -83,8 +83,8 @@ class DateGraphWidget(Frame):
         p2, = ax2.plot(xdata2, weightdata, "o-r")
         self.ax.yaxis.label.set_color(p1.get_color())
         ax2.yaxis.label.set_color(p2.get_color())
-        self.ax.xaxis.set_minor_locator(days)
-        self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
+        # self.ax.xaxis.set_minor_locator(days)
+        # self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
         self.ax.grid(True)
 
         self.fig.autofmt_xdate()
@@ -134,8 +134,8 @@ class MultiDateGraphWidget(Frame):
 
         self.ax.legend(lines, [x.get_label() for x in lines])
 
-        self.ax.xaxis.set_minor_locator(days)
-        self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
+        # self.ax.xaxis.set_minor_locator(days)
+        # self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
         self.ax.grid(True)
         self.fig.autofmt_xdate()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)

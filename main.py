@@ -4,21 +4,36 @@ import re
 from graphs import *
 import datetime
 
-class App:
 
-    def __init__(self, master):
+class LoggingMixIn:
 
-        self.container0 = Frame(master)
-        self.container0.pack()
-        self.container = Frame(self.container0)
-        self.container.pack(side=LEFT)
-        self.container3 = Frame(self.container0)
-        self.container3.pack(side=LEFT, padx=20)
+    """provides a method to send a message, via the application root object, to a console that
+    prints the text output."""
 
-        self.graph_window = GraphWindow(self.container0)
+    _root = None  # this method is provided by all other tkinter classes that will be mixed in
+                  # it gets a reference to the app root object
+
+    def log(self, msg):
+
+        self._root().log(msg)
+
+
+class App(Frame, LoggingMixIn):
+
+    """top level window containing everything else"""
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.cont1 = Frame(self)
+        self.cont1.pack(side=LEFT)
+        self.cont2 = Frame(self, relief=RIDGE)
+        self.cont2.pack(side=LEFT, padx=20)
+
+        self.graph_window = GraphWindow(self)
         self.graph_window.pack(side=LEFT, fill=BOTH, expand=YES)
 
-        self.recipe_name_container = Frame(self.container)
+        self.recipe_name_container = Frame(self.cont1)
         self.recipe_name_container.pack(side=TOP, pady=20)
         self.recipe_name_label = Label(self.recipe_name_container, text="Recipe name")
         self.recipe_name_label.pack(side=LEFT)
@@ -37,13 +52,17 @@ class App:
                                            command=self.add_recipe)
         self.commit_recipe_button.pack(side=RIGHT)
 
-        self.entry_boxes = MyEntryBoxes(self.container, parent=self)
+        self.entry_boxes = MyEntryBoxes(self.cont1)
         self.entry_boxes.pack(side=TOP)
 
-        self.running_totals = RunningTotals(self.container3)
+        self.console = LoggingConsole(self.cont1, height=20, width=30)
+        # this receives messages from the root object
+        self.console.pack(side=TOP, fill=BOTH, expand=YES)
+
+        self.running_totals = RunningTotals(self.cont2, borderwidth=5, relief=RIDGE)
         self.running_totals.pack(side=TOP)
 
-        self.ingredient_adder = IngredientAdder(self.container3, parent=self)
+        self.ingredient_adder = IngredientAdder(self.cont2, borderwidth=5, relief=RIDGE)
         self.ingredient_adder.pack(side=TOP)
 
         self.inglist = []  # the list of ingredients currently accumulating for a new recipe
@@ -57,19 +76,19 @@ class App:
             # "speculative" checkbox is ticked and user just wants to make a plan, not enter into db
             nutritional_info = db.calc_nutritional_content(content)
             self.running_totals.increment_displayed_values(nutritional_info)
-            self.entry_boxes.log_message(f"Added {i}: {j} {k} to speculative running total.\n")
+            self.log(f"Added {i}: {j} {k} to speculative running total.\n")
             self.entry_boxes.clear_all()
             return  # return early to stop the db adding code running
 
         if rname:
             # adding a new recipe
             self.inglist.append(content)
-            self.entry_boxes.log_message(f"Added {i}: {j} {k} to the recipe for {rname}.\n")
+            self.log(f"Added {i}: {j} {k} to the recipe for {rname}.\n")
         else:
             # recording what was eaten today
             nutritional_info = db.record_consumption(content)
             self.running_totals.increment_displayed_values(nutritional_info)
-            self.entry_boxes.log_message(f"Consumed {i}: {j} {k}.\n")
+            self.log(f"Consumed {i}: {j} {k}.\n")
         self.entry_boxes.clear_all()
 
     def add_recipe(self):
@@ -77,13 +96,13 @@ class App:
         nm = self.recipe_name_input.get()
         portions = self.recipe_portion_input.get()
         if not portions:
-            self.entry_boxes.log_message("Portion size not entered\n")
+            self.log("Portion size not entered\n")
             return
         db.add_recipe(nm, self.inglist, portions)
         self.recipe_name_input.delete(0, END)
         self.recipe_portion_input.delete(0, END)
         self.inglist = []
-        self.entry_boxes.log_message(f"Added recipe for {nm} to the database.\n")
+        self.log(f"Added recipe for {nm} to the database.\n")
         self.entry_boxes.refresh_autocompletes()
 
 
@@ -183,20 +202,20 @@ class GraphWindow(Frame):
 
         return dates, values
 
-class RunningTotals:
+class RunningTotals(Frame):
 
-    def __init__(self, parent_container):
+    def __init__(self, *args, **kwargs):
 
-        self.container = Frame(parent_container)
-        self.title = Label(self.container, text="Today's consumption")
+        super().__init__(*args, **kwargs)
+
+        self.weighin = WeighIn(self)
+        self.weighin.pack(side=TOP, expand=YES, fill=BOTH)
+        self.title = Label(self, text="Today's consumption")
         self.title.pack(side=TOP)
         self.readings = {}
         self.reading_values = {}
 
-        self.weighin = WeighIn(self.container)
-        self.weighin.pack(side=TOP, expand=YES, fill=BOTH)
-
-        self.label_con = Frame(self.container)
+        self.label_con = Frame(self)
         self.label_con.pack(side=TOP)
 
         for x in ["protein", "carbohydrate", "fat", "kcals"]:
@@ -211,6 +230,7 @@ class RunningTotals:
 
         today_info = db.get_daily_totals(date="now")[0]  # read in the day's entries already made
 
+        # TODO: get dummy data directly from the SQL query
         dummy_data = {"sum(protein)": 0,
                       "sum(carbohydrate)": 0,
                       "sum(fat)": 0,
@@ -224,10 +244,6 @@ class RunningTotals:
             tmp[x] = val
         self.increment_displayed_values(tmp)
 
-    def pack(self, side):
-
-        self.container.pack(side=side, pady=60)
-
     def increment_displayed_values(self, adict):
 
         """pass in a dict containing protein, carbohydrate, fat, kcals"""
@@ -238,7 +254,7 @@ class RunningTotals:
             self.readings[k].configure(text=round(new_val, 2))
             self.reading_values[k] = new_val
 
-class WeighIn(Frame):
+class WeighIn(Frame, LoggingMixIn):
 
     def __init__(self, *args, **kwargs):
 
@@ -254,33 +270,29 @@ class WeighIn(Frame):
 
         val = self.entry.get()
         db.enter_weight(val)
-        print(f"entered weight {val} into the db")  # TODO: log to console after refactoring
+        self.log(f"entered weigh-in {val} kg into the db")
         self.entry.delete(0, END)
 
 
-class IngredientAdder:
+class IngredientAdder(Frame, LoggingMixIn):
 
-    def __init__(self, parent_container, parent):
+    def __init__(self, *args, **kwargs):
 
-        self.container = Frame(parent_container)
-        self.parent = parent
-        title = Label(self.container, text="Enter new ingredient:")
+        super().__init__(*args, **kwargs)
+
+        title = Label(self, text="Enter new ingredient:")
         title.pack(side=TOP)
         self.entries = {}  # dict to look up values in the entry boxes
         for x in ["name", "kcals", "fat", "carbohydrate", "protein", "unit", "serving_size", "container_name"]:
-            con = Frame(self.container)
+            con = Frame(self)
             lab = Label(con, text=x)
             lab.pack(side=LEFT)
             entry = Entry(con)
             entry.pack(side=RIGHT)
             self.entries[x] = entry
             con.pack(side=TOP, fill=BOTH, expand=YES)
-        self.confirm_button = Button(self.container, text="Confirm",command=self.add_ingredient)
+        self.confirm_button = Button(self, text="Confirm",command=self.add_ingredient)
         self.confirm_button.pack(side=TOP, pady=20)
-
-    def pack(self, side):
-
-        self.container.pack(side=side)
 
     def add_ingredient(self):
 
@@ -294,52 +306,51 @@ class IngredientAdder:
                 ingname = value
 
         db.add_ingredient(out)
-        self.parent.entry_boxes.log_message(f"Added ingredient {ingname} to the database.\n")
-        self.parent.entry_boxes.refresh_autocompletes()
+        self.log(f"Added ingredient {ingname} to the database.\n")
+        self.master.master.entry_boxes.refresh_autocompletes()  # master is the top level frame
 
 
-class MyEntryBoxes:
+class MyEntryBoxes(Frame):
 
     """three text entry boxes, item name, amount, and unit"""
 
-    def __init__(self, cont, parent):
+    def __init__(self, *args, **kwargs):
 
-        self.parent = parent
-        self.container = Frame(cont)
-        self.container2 = Frame(self.container)
-        self.container3 = Frame(self.container)
+        super().__init__(*args, **kwargs)
+        self.cont1 = Frame(self)
+        self.cont2 = Frame(self)
         self.ingredient_autocompletes = db.get_all_ingredient_names()
         self.recipe_autocompletes = db.get_all_recipe_names()
 
         for label in ("name", "amount", "unit"):
-            l = Label(self.container3)
+            l = Label(self.cont2)
             l.configure(text=label)
             l.pack(side=LEFT, fill=BOTH, expand=YES)
-        self.container3.pack(side=TOP, fill=BOTH, expand=YES)
+        self.cont2.pack(side=TOP, fill=BOTH, expand=YES)
 
-        self.name_entry = Entry(self.container2)
+        self.name_entry = Entry(self.cont1)
         self.name_entry.pack(side=LEFT)
         self.name_entry.bind("<KeyRelease>", self.te_function)
-        #self.name_entry.bind("<Tab>", lambda e: "break")
         self.name_entry.bind("<Tab>", self.te_tab_down)
         self.name_entry.bind("<Up>", self.te_arrow)
         self.name_entry.bind("<Down>", self.te_arrow)
         # override behaviour where tab selects the next widget
         # returning "break" stops the event from propagating
 
-        self.amount_entry = Entry(self.container2)
+        self.amount_entry = Entry(self.cont1)
         self.amount_entry.pack(side=LEFT)
 
-        self.unit_entry = Entry(self.container2)
+        self.unit_entry = Entry(self.cont1)
         self.unit_entry.pack(side=LEFT)
-        self.unit_entry.bind("<Return>", self.parent.add_entry)
+
+        self.unit_entry.bind("<Return>", self.master.master.add_entry)
         # NOTE: "<Enter>" means when the mouse enters the widget
         self.unit_entry.bind("<Tab>", self.unit_tab_down)
 
-        self.container2.pack(side=TOP)
+        self.cont1.pack(side=TOP)
 
         self.checkbox_var = IntVar()
-        self.speculative_container = Frame(self.container)
+        self.speculative_container = Frame(self)
         self.spec_label = Label(self.speculative_container, text="Speculative")
         self.spec_label.pack(side=LEFT)
         self.spec_checkbox = Checkbutton(self.speculative_container, variable=self.checkbox_var)
@@ -350,25 +361,19 @@ class MyEntryBoxes:
         self.unit = None
         self.container_name = None
 
-        self.lb = Listbox(self.container, exportselection=0)
+        self.lb = Listbox(self, exportselection=0)
         self.lb.pack(side=TOP, fill=BOTH, expand=YES, pady=10)
         for word in self.ingredient_autocompletes:
             self.lb.insert(0, word)
         self.lb.selection_set(0)
 
-        self.recipe_box = Listbox(self.container, exportselection=0)
+        self.recipe_box = Listbox(self, exportselection=0)
         self.recipe_box.pack(side=TOP, fill=BOTH, expand=YES)
         for word in db.get_all_recipe_names():
             self.recipe_box.insert(0, word)
         self.recipe_box.selection_set(0)
         # !!ONLY ONE LIST BOX CAN HAVE AN ACTIVE SELECTION AT ONE TIME!! #
         # exportselection=0 overrides this behaviour
-
-        self.console = Text(self.container, height=20, width=30)
-        self.console.config(state=DISABLED)
-        self.console.pack(side=TOP, fill=BOTH, expand=YES, pady=10)
-
-
 
     def refresh(self, listbox, lst, partial):
 
@@ -385,24 +390,7 @@ class MyEntryBoxes:
         self.ingredient_autocompletes = db.get_all_ingredient_names()
         self.recipe_autocompletes = db.get_all_recipe_names()
 
-    def pack(self, side):
-
-        self.container.pack(side=side)
-
-    def log_message(self, msg):
-
-        self.console.config(state=NORMAL)
-        self.console.insert("1.0", msg)
-        # insert in line 1, column 0 (lines start from 1)
-        # this makes sure the new message comes at the top
-        self.console.delete("20.0", END)
-        # make sure it doesn't fill up forever
-        self.console.config(state=DISABLED)
-
     def te_function(self, e):
-
-        #print(e.keycode)
-        #self.log_message(f"got {e.keycode}\n")
 
         if e.keycode == 40 or e.keycode == 38:
             # up is 38, dn is 40
@@ -420,7 +408,6 @@ class MyEntryBoxes:
                 if len(options) == 1:
                     e.widget.delete(0, END)
                     e.widget.insert(0, options[0])
-
 
     def te_tab_down(self, e):
 
@@ -465,7 +452,6 @@ class MyEntryBoxes:
 
         return "break"  # suppress moving the focus to the next field
 
-
     def te_arrow(self, e):
 
         current = self.lb.curselection()  # a tuple of indexes, so the first item is (0,)
@@ -500,7 +486,45 @@ class MyEntryBoxes:
         self.name_entry.focus_set()
 
 
-root = Tk()
+class LoggingConsole(Text):
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.config(state=DISABLED)  # user can't type in here
+        self._root().console = self
+        # put a reference in our custom root object so it can direct logging messages here
+
+    def log_message(self, msg):
+
+        self.config(state=NORMAL)  # temporarily re-enable so we can add text
+        self.insert("1.0", f"{msg}\n")
+        # insert in line 1, column 0 (lines start from 1)
+        # this makes sure the new message comes at the top
+        self.delete("20.0", END)  # trim old messages
+        self.config(state=DISABLED)
+
+
+class MyRoot(Tk):
+
+    """custom root class that contains top-level functions for the application, like redirecting log
+    messages to the logging console"""
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.console = None  # when a console is created, it registers itself with the root object
+
+    def log(self, msg):
+
+        """redirect a message to the registered logging console"""
+
+        if self.console:
+            self.console.log_message(msg)
+
+
+root = MyRoot()
 root.title("Calorie counter")
 app = App(root)
+app.pack()
 root.mainloop()
