@@ -69,33 +69,76 @@ class DateGraphWidget(Frame):
             raise ValueError("must provide x and y data arrays")
         else:
             self.xdata = xdata
+            self.xdata2 = xdata2
             self.caldata = caldata
+            self.weightdata = weightdata
 
-        days = mdates.DayLocator()
         self.fig = Figure(figsize=(6, 5), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Date")
-        self.ax.set_ylabel("kcals")
+        self.ax.set_ylabel("weight/kg")
 
-        ax2 = self.ax.twinx()  # make a "twinned" axis to have two scales on the same plot
-        ax2.set_ylabel("weight/kg")
-        p1, = self.ax.plot(xdata, caldata, "s-b")
-        p2, = ax2.plot(xdata2, weightdata, "o-r")
+        self.ax2 = self.ax.twinx()  # make a "twinned" axis to have two scales on the same plot
+        self.ax2.set_ylabel("kcals")
+
+        p1, = self.ax.plot(xdata2, weightdata, "o-r")
+        # pickable data with a tolerance of 5 pixels
+        p2, = self.ax2.plot(xdata, caldata, "s-b", picker=5)
+        # can only "pick" data from the most recent axis to be plotted
+
         self.ax.yaxis.label.set_color(p1.get_color())
-        ax2.yaxis.label.set_color(p2.get_color())
-        # self.ax.xaxis.set_minor_locator(days)
-        # self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
+        self.ax2.yaxis.label.set_color(p2.get_color())
         self.ax.grid(True)
-
         self.fig.autofmt_xdate()
 
+        self.selected = None
+        self.picked = False   # variables for data point picking behaviour
+
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas.mpl_connect("pick_event", self.onpick)
+        self.canvas.mpl_connect("button_press_event", self.onmouse)
         widget = self.canvas.get_tk_widget()
         widget.pack(side=TOP, fill=BOTH, expand=YES)
 
     def set_title(self, title):
 
         self.ax.set_title(title)
+
+    def onmouse(self, e):
+
+        """function for if the user clicks on the graph canvas but not on a data point, this
+        deselects the currently selected data point if there is one."""
+
+        # print("on mouse")
+        if not self.picked and len(self.ax2.lines) > 1:
+            self.ax2.lines.pop()  # remove the last Line2D object that we plotted
+            self.selected = None
+        self.canvas.draw()
+        self.picked = False
+
+    def onpick(self, e):
+
+        """even for picking a data point with the mouse, note this is run FIRST before the
+        mouseevent that generates the pick event"""
+
+        # print("picked")
+        # print(e.mouseevent)
+        # print(vars(e))
+        if self.selected:
+            self.ax2.lines.pop()  # remove the last Line2D object that we plotted
+            self.selected = None
+        if e.mouseevent.button == 1:
+            self.selected = self.ax2.plot([self.xdata[e.ind[0]]], [self.caldata[e.ind[0]]], "go", ms=15)
+            # the event has an "index" of the data point, but it's returned as a single value list
+            # ms is "marker size" for the plot, "go" is green circles
+        self.canvas.draw()  # need to refresh the canvas
+
+        self.picked = True
+        ret = self.xdata[e.ind[0]].date()
+        # the date we get from the graph is "DD-MM-YYYY hh:mm:ss" and we only want the date
+        self._root().show_pie_charts(ret)
+        # this sends the date of the selected point to the root object, so it can plot a pie charts of
+        # data from that date
 
 
 class MultiDateGraphWidget(Frame):

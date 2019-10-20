@@ -114,18 +114,14 @@ class GraphWindow(Frame):
         super().__init__(*args, **kwargs)
         self.pie_container = Frame(self)
         self.graph_container = Frame(self)
+        self.config(bg="white")
 
-        today_info = db.get_daily_totals(date="now")[0]
-        yesterday_info = db.get_daily_totals(date="now", date_mod="-1 day")[0]
-        # these date modifiers are understood by Sqlite
+        self.today_pie = Frame()
+        self.yesterday_pie = Frame()
+        # these are overwritten when new pie charts are displayed and are immediately destroyed
 
-        self.today_pie = PieChartWidget(self.pie_container,
-                                        data_series=self.prepare_pie_data_series(today_info))
-        self.yesterday_pie = PieChartWidget(self.pie_container,
-                                            data_series=self.prepare_pie_data_series(yesterday_info))
-
-        self.today_pie.set_title("Macronutrients (today)")
-        self.yesterday_pie.set_title("Macronutrients (yesterday)")
+        self.show_calorie_split_chart("now")
+        self.show_macro_split_chart("now")  # set up pie charts with today's data
 
         historical_info = db.get_daily_totals()
         line_graph_data = self.prepare_line_data_series(historical_info)
@@ -164,6 +160,36 @@ class GraphWindow(Frame):
             names.append(k)
             values.append(row[k])
         return names, values
+
+    def prepare_calorie_data_series(self, dc):
+
+        """converts the sqlite row to a pair of lists suitable for the pie chart widget"""
+
+        names = []
+        values = []
+        for k in dc.keys():
+            names.append(k)
+            values.append(dc[k])
+        return names, values
+
+    def show_calorie_split_chart(self, date):
+
+        items = db.get_day_consumption(date)
+        self.today_pie.destroy()
+        chart = PieChartWidget(self.pie_container, data_series=self.prepare_calorie_data_series(items))
+        chart.set_title(f"Calorie split for {date}")
+        self.today_pie = chart
+        self.today_pie.pack(side=LEFT, fill=BOTH, expand=YES)
+
+    def show_macro_split_chart(self, date):
+
+        info = db.get_daily_totals(date=date)[0]
+        self.yesterday_pie.destroy()
+        chart = PieChartWidget(self.pie_container,
+                                data_series=self.prepare_pie_data_series(info))
+        chart.set_title(f"Macronutrient split for {date}")
+        self.yesterday_pie = chart
+        self.yesterday_pie.pack(side=LEFT, fill=BOTH, expand=YES)
 
     def prepare_line_data_series(self, rowlist):
 
@@ -501,7 +527,10 @@ class MyRoot(Tk):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
+        self.title("Calorie counter")
         self.console = None  # when a console is created, it registers itself with the root object
+        self.app = App(self)  # the main window frame containing all other frames
+        self.app.pack()
 
     def log(self, msg):
 
@@ -510,9 +539,14 @@ class MyRoot(Tk):
         if self.console:
             self.console.log_message(msg)
 
+    def show_pie_charts(self, date):
+
+        self.app.graph_window.show_calorie_split_chart(date)
+        self.app.graph_window.show_macro_split_chart(date)
+
 
 root = MyRoot()
-root.title("Calorie counter")
-app = App(root)
-app.pack()
+#root.title("Calorie counter")
+#app = App(root)
+#app.pack()
 root.mainloop()

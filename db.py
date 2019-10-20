@@ -203,3 +203,23 @@ def get_daily_weighins(conn=CONN):
 
     a = conn.execute('''select date(entry_time), weighin from weight''')
     return a.fetchall()
+
+
+def get_day_consumption(date, conn=CONN):
+
+    """return a list of rows of everything consumed in one particular day and the amount of kcals per item,
+    to plot where the day's calories came from. Do some processing to condense down into a maximum of 6 entries
+    with a generic 'other' category for small items consumed."""
+
+    a = conn.execute('''SELECT name, kcals FROM consumption WHERE date(entry_time) = ? ORDER BY kcals DESC''',
+                     (date,))
+    out = {}
+    other = 0
+    for cnt, row in enumerate(a.fetchall()):
+        if cnt < 6:
+            out[row["name"]] = row["kcals"]
+        else:
+            # compile the smaller items into a generic "other" category if there are too many
+            other += row["kcals"]
+    out["other"] = other
+    return out
