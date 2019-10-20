@@ -61,10 +61,10 @@ class App(Frame, LoggingMixIn):
         self.console.pack(side=TOP, fill=BOTH, expand=YES)
 
         self.running_totals = RunningTotals(self.cont2, borderwidth=5, relief=RIDGE)
-        self.running_totals.pack(side=TOP)
+        self.running_totals.pack(side=TOP, fill=BOTH, expand=Y)
 
         self.ingredient_adder = IngredientAdder(self.cont2, borderwidth=5, relief=RIDGE)
-        self.ingredient_adder.pack(side=TOP)
+        self.ingredient_adder.pack(side=TOP, fill=BOTH, expand=Y)
 
         self.inglist = []  # the list of ingredients currently accumulating for a new recipe
 
@@ -116,8 +116,8 @@ class GraphWindow(Frame):
         self.graph_container = Frame(self)
         self.config(bg="white")
 
-        self.today_pie = Frame()
-        self.yesterday_pie = Frame()
+        self.today_pie = PieChartWidget(self.pie_container)
+        self.yesterday_pie = PieChartWidget(self.pie_container)
         # these are overwritten when new pie charts are displayed and are immediately destroyed
 
         self.show_calorie_split_chart("now")
@@ -175,21 +175,16 @@ class GraphWindow(Frame):
     def show_calorie_split_chart(self, date):
 
         items = db.get_day_consumption(date)
-        self.today_pie.destroy()
-        chart = PieChartWidget(self.pie_container, data_series=self.prepare_calorie_data_series(items))
-        chart.set_title(f"Calorie split for {date}")
-        self.today_pie = chart
-        self.today_pie.pack(side=LEFT, fill=BOTH, expand=YES)
+        dat = self.prepare_calorie_data_series(items)
+        self.today_pie.redraw(dat)
+        self.today_pie.set_title(f"Calorie split for {date}")
 
     def show_macro_split_chart(self, date):
 
         info = db.get_daily_totals(date=date)[0]
-        self.yesterday_pie.destroy()
-        chart = PieChartWidget(self.pie_container,
-                                data_series=self.prepare_pie_data_series(info))
-        chart.set_title(f"Macronutrient split for {date}")
-        self.yesterday_pie = chart
-        self.yesterday_pie.pack(side=LEFT, fill=BOTH, expand=YES)
+        dat = self.prepare_pie_data_series(info)
+        self.yesterday_pie.redraw(dat)
+        self.yesterday_pie.set_title(f"Macronutrient split for {date}")
 
     def prepare_line_data_series(self, rowlist):
 
@@ -280,6 +275,14 @@ class WeighIn(Frame, LoggingMixIn):
         self.entry.pack(side=LEFT)
         button.pack(side=LEFT)
 
+        weight_today = db.get_today_weight()
+        # check if the user has already entered a weight today, if so, display it and disable the entry
+        a = weight_today["weighin"]
+        if a:
+            self.entry.insert(0, a)
+            self.entry.config(state=DISABLED)
+            button.config(state=DISABLED)
+
     def submit_weight(self):
 
         val = self.entry.get()
@@ -302,7 +305,7 @@ class IngredientAdder(Frame, LoggingMixIn):
             lab = Label(con, text=x)
             lab.pack(side=LEFT)
             entry = Entry(con)
-            entry.pack(side=RIGHT)
+            entry.pack(side=RIGHT, padx=10)
             self.entries[x] = entry
             con.pack(side=TOP, fill=BOTH, expand=YES)
         self.confirm_button = Button(self, text="Confirm", command=self.add_ingredient)
@@ -541,12 +544,12 @@ class MyRoot(Tk):
 
     def show_pie_charts(self, date):
 
+        """Given a date, refresh the macronutrient split and calorie split pie charts in the graph window
+        with the data recorded on that date. The graph window function takes care of getting the data."""
+
         self.app.graph_window.show_calorie_split_chart(date)
         self.app.graph_window.show_macro_split_chart(date)
 
 
 root = MyRoot()
-#root.title("Calorie counter")
-#app = App(root)
-#app.pack()
 root.mainloop()

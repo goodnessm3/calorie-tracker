@@ -188,9 +188,9 @@ def get_daily_totals(date=None, date_mod=None, conn=CONN):
         return ret
     else:
         return [{"sum(protein)": 0,
-                "sum(carbohydrate)": 0,
-                "sum(fat)": 0,
-                "sum(kcals)": 0}]
+                 "sum(carbohydrate)": 0,
+                 "sum(fat)": 0,
+                 "sum(kcals)": 0}]
 
         # dict of dummy values to populate the interface, instead of a sqlite row. When the user starts entering
         # data, it will be written to the db and can be returned by this function in future calls.
@@ -203,6 +203,12 @@ def get_daily_weighins(conn=CONN):
 
     a = conn.execute('''select date(entry_time), weighin from weight''')
     return a.fetchall()
+
+
+def get_today_weight(conn=CONN):
+
+    a = conn.execute('''SELECT weighin FROM weight WHERE date(entry_time) = date("now")''')
+    return a.fetchone()
 
 
 def get_day_consumption(date, conn=CONN):

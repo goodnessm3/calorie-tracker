@@ -41,11 +41,7 @@ class PieChartWidget(Frame):
 
         super().__init__(*args, **kwargs)
         self.fig = Figure(figsize=(5, 4), dpi=100)
-        names, data = data_series  # unpack the passed arg
-        self.ax = self.fig.add_subplot(111)  # add_subplot returns an axes object
-        wedges, text, autopct = self.ax.pie(data, autopct=lambda x: f"{int(x)}% ", textprops={"color": "w"})
-        # the autopct lambda function gets passed the percentage as an argument
-        self.ax.legend(wedges, names)
+        self.ax = None  # this will be defined the first time the redraw function is called
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         widget = self.canvas.get_tk_widget()
@@ -54,6 +50,17 @@ class PieChartWidget(Frame):
     def set_title(self, title):
 
         self.ax.set_title(title)
+        self.canvas.draw()
+
+    def redraw(self, data_series):
+
+        names, data = data_series
+        self.fig.clear()
+        self.ax = self.fig.add_subplot(111)  # add_subplot returns an axes object
+        wedges, text, autopct = self.ax.pie(data, autopct=lambda x: f"{int(x)}% ", textprops={"color": "w"})
+        # the autopct lambda function gets passed the percentage as an argument
+        self.ax.legend(wedges, names)
+        self.canvas.draw()
 
 
 class DateGraphWidget(Frame):
@@ -155,7 +162,6 @@ class MultiDateGraphWidget(Frame):
             self.xdata = xdata
             self.ydata = ydata
 
-        days = mdates.DayLocator()
         self.fig = Figure(figsize=(5, 4), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Date")
@@ -173,9 +179,6 @@ class MultiDateGraphWidget(Frame):
             lines.append(a)  # hold a reference to the lines to build the legend
 
         self.ax.legend(lines, [x.get_label() for x in lines])
-
-        # self.ax.xaxis.set_minor_locator(days)
-        # self.ax.xaxis.set_minor_formatter(mdates.DateFormatter("%D"))
         self.ax.grid(True)
         self.fig.autofmt_xdate()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
