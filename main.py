@@ -70,6 +70,9 @@ class App(Frame, LoggingMixIn):
 
     def add_entry(self, e):
 
+        """record addition of a new recipe or consumption of an item, also update the kcals/weight
+        and macro split graphs"""
+
         rname = self.recipe_name_input.get()
         content = self.entry_boxes.get_content()
         i, j, k = content
@@ -77,19 +80,21 @@ class App(Frame, LoggingMixIn):
             # "speculative" checkbox is ticked and user just wants to make a plan, not enter into db
             nutritional_info = db.calc_nutritional_content(content)
             self.running_totals.increment_displayed_values(nutritional_info)
-            self.log(f"Added {i}: {j} {k} to speculative running total.\n")
+            self.log(f"Added {i}: {j} {k} to speculative running total.")
             self.entry_boxes.clear_all()
             return  # return early to stop the db adding code running
 
         if rname:
             # adding a new recipe
             self.inglist.append(content)
-            self.log(f"Added {i}: {j} {k} to the recipe for {rname}.\n")
+            self.log(f"Added {i}: {j} {k} to the recipe for {rname}.")
         else:
             # recording what was eaten today
             nutritional_info = db.record_consumption(content)
             self.running_totals.increment_displayed_values(nutritional_info)
-            self.log(f"Consumed {i}: {j} {k}.\n")
+            self.log(f"Consumed {i}: {j} {k}.")
+            self.graph_window.redraw_line_graph()  # update to reflect this consumption
+            self.graph_window.redraw_macro_graph()
         self.entry_boxes.clear_all()
 
     def add_recipe(self):
@@ -97,13 +102,13 @@ class App(Frame, LoggingMixIn):
         nm = self.recipe_name_input.get()
         portions = self.recipe_portion_input.get()
         if not portions:
-            self.log("Portion size not entered\n")
+            self.log("Portion size not entered")
             return
         db.add_recipe(nm, self.inglist, portions)
         self.recipe_name_input.delete(0, END)
         self.recipe_portion_input.delete(0, END)
         self.inglist = []
-        self.log(f"Added recipe for {nm} to the database.\n")
+        self.log(f"Added recipe for {nm} to the database.")
         self.entry_boxes.refresh_autocompletes()
 
 
@@ -149,6 +154,29 @@ class GraphWindow(Frame):
         self.graph_container.config(bg="white")
         self.line_graph.pack(side=LEFT, fill=BOTH, expand=YES, padx=30)
         self.macro_graph.pack(side=LEFT, fill=BOTH, expand=YES)
+
+    def redraw_line_graph(self):
+
+        # TODO: refactor so this isn't just copy-pasted code from the init function
+        historical_info = db.get_daily_totals()
+        line_graph_data = self.prepare_line_data_series(historical_info)
+        a, b = line_graph_data
+
+        weight_info = db.get_daily_weighins()
+        weight_data = self.prepare_line_data_series(weight_info)
+        i, j = weight_data
+
+        self.line_graph.redraw(xdata=a,
+                            caldata=[x["sum(kcals)"] for x in b],
+                            xdata2=i,
+                            weightdata=[x["weighin"] for x in j])
+
+    def redraw_macro_graph(self):
+
+        historical_info = db.get_daily_totals()
+        macronutrient_info = self.prepare_macronutrient_data_series(historical_info)
+        a, b = macronutrient_info
+        self.macro_graph.redraw(a, b)
 
     def prepare_pie_data_series(self, row):
 
@@ -277,8 +305,9 @@ class WeighIn(Frame, LoggingMixIn):
 
         weight_today = db.get_today_weight()
         # check if the user has already entered a weight today, if so, display it and disable the entry
-        a = weight_today["weighin"]
-        if a:
+
+        if weight_today:
+            a = weight_today["weighin"]
             self.entry.insert(0, a)
             self.entry.config(state=DISABLED)
             button.config(state=DISABLED)
@@ -323,7 +352,7 @@ class IngredientAdder(Frame, LoggingMixIn):
                 ingname = value
 
         db.add_ingredient(out)
-        self.log(f"Added ingredient {ingname} to the database.\n")
+        self.log(f"Added ingredient {ingname} to the database.")
         self.master.master.entry_boxes.refresh_autocompletes()  # master is the top level frame
 
 

@@ -80,7 +80,7 @@ class DateGraphWidget(Frame):
             self.caldata = caldata
             self.weightdata = weightdata
 
-        self.fig = Figure(figsize=(6, 5), dpi=100)
+        self.fig = Figure(figsize=(5, 5), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Date")
         self.ax.set_ylabel("weight/kg")
@@ -97,6 +97,7 @@ class DateGraphWidget(Frame):
         self.ax2.yaxis.label.set_color(p2.get_color())
         self.ax.grid(True)
         self.fig.autofmt_xdate()
+        self.fig.tight_layout()  # required to stop the right axis label being cut off sometimes
 
         self.selected = None
         self.picked = False   # variables for data point picking behaviour
@@ -110,6 +111,8 @@ class DateGraphWidget(Frame):
     def set_title(self, title):
 
         self.ax.set_title(title)
+        self.fig.tight_layout()
+        self.canvas.draw()
 
     def onmouse(self, e):
 
@@ -146,6 +149,16 @@ class DateGraphWidget(Frame):
         self._root().show_pie_charts(ret)
         # this sends the date of the selected point to the root object, so it can plot a pie charts of
         # data from that date
+
+    def redraw(self, xdata, caldata, xdata2, weightdata):
+
+        self.ax.lines.pop()  # remove old weight series
+        while len(self.ax2.lines) > 0:
+            self.ax2.lines.pop()  # might have to pop the picked marker also
+
+        self.ax.plot(xdata2, weightdata, "o-r")
+        self.ax2.plot(xdata, caldata, "s-b", picker=5)
+        self.canvas.draw()
 
 
 class MultiDateGraphWidget(Frame):
@@ -188,3 +201,23 @@ class MultiDateGraphWidget(Frame):
     def set_title(self, title):
 
         self.ax.set_title(title)
+
+    def redraw(self, xdata, ydata):
+
+        self.ax.get_legend().remove()
+        while len(self.ax.lines) > 0:
+            self.ax.lines.pop()
+
+        # TODO: remove duplicated code from init method
+        lines = []
+        keys = [x for x in ydata[0].keys()]  # get the keys from the first dict and use for all subsequent
+        series = {x: [] for x in keys}
+        for i in ydata:
+            for j in keys:
+                series[j].append(i[j])  # assemble a dict of {key1: [value1, value2...]}
+        for x, q in zip(keys, ["r-", "g-", "b-"]):
+            a, = self.ax.plot(xdata, series[x], q, label=x)  # then plot using the dict we just made
+            lines.append(a)  # hold a reference to the lines to build the legend
+        self.ax.legend(lines, [x.get_label() for x in lines])
+
+        self.canvas.draw()
